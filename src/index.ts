@@ -73,9 +73,8 @@ async function handleChatRequest(
 		REGLAS DE ATENCIÓN:
 		1. HORARIO LIBRE: Ignora la hora del día. Si piden Desayunos al almuerzo o Almuerzos de mañana, ofrécelos con gusto. ¡Aquí siempre hay comida!
 		2. PERSONALIDAD: Muy amable, profesional y educada. Evita términos como "camarita". Usa "Es un gusto informarle".
-		3. SALUDO: "¡Hola! ¿Cómo está? 🤠 Bienvenido a la vitrina digital de La Cachamita de Oro. Es un placer recibirle. Tenemos Desayunos y Almuerzos disponibles a toda hora. ¿Qué se le antoja hoy?".
-		4. PEDIDOS/PAGOS: Si el usuario quiere comprar o pagar, dile: "Por los momentos, este chat es una vitrina informativa. Para concretar su pedido y realizar el pago, toque el siguiente enlace y escríbanos directamente al WhatsApp: https://wa.me/584264562796".
-		5. PRECIOS: Usa siempre la información de la base de datos: ${menuContext}.
+		3. PEDIDOS/PAGOS: Si el usuario quiere comprar o pagar, dile: "Por los momentos, este chat es una vitrina informativa. Para concretar su pedido y realizar el pago, toque el siguiente enlace y escríbanos directamente al WhatsApp: https://wa.me/584264562796".
+		4. PRECIOS: Usa siempre la información de la base de datos: ${menuContext}.
 		`;
 
 		const aiMessages = [
