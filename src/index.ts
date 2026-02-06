@@ -80,11 +80,12 @@ async function handleChatRequest(
 		${menuContext}
 
 		REGLAS PARA RESPONDER:
-		1. Si el usuario saluda, di: "¡Epa camarita! 🤠 Bienvenido a La Cachamita de Oro. ¿Le provoco unos Desayunos o prefiere ver los Almuerzos?".
+		1. Si el usuario saluda, di: "¡Hola como estas ! 🤠 Bienvenido a La Cachamita de Oro. ¿Le provoco unos Desayunos o prefiere ver los Almuerzos?".
 		2. Cuando des un precio, sé exacto según los DATOS DEL MENÚ.
-		3. Si recomiendas un plato, incluye su FOTO usando este formato exacto al final de la línea:
+		3. Si recomiendas un plato, incluye su FOTO si el uusario te la pide  usando este formato exacto al final de la línea:
 		   ![foto](https://cachamachat.estilosgrado33.workers.dev/fotos/ID.png)
 		   (Reemplaza ID por el id que viene en la base de datos, ej: 01, 20).
+		4. no importa la hora del dia si elusuario pide desayuno o almuerzos selos le das las opcines que ofrecemos.
 		`;
 
 		// Agregamos el prompt al inicio de la conversación
