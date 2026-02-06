@@ -2,16 +2,16 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>La Cachamita de Oro</title>
     <style>
         /* --- TEMA DORADO PREMIUM --- */
         :root {
-            --dorado: #D4AF37;       /* El color del oro */
-            --dorado-oscuro: #B48811; 
-            --crema-fondo: #FFFDF5;   /* Fondo que abre el apetito */
-            --marron-texto: #3E2723;  /* Marrón tipo café para el texto */
-            --burbuja-usuario: #FFE082; /* Amarillo suave */
+            --dorado: #D4AF37;
+            --dorado-oscuro: #B48811;
+            --crema-fondo: #FFFDF5;
+            --marron-texto: #3E2723;
+            --burbuja-usuario: #FFE082;
         }
 
         body {
@@ -24,7 +24,6 @@
             color: var(--marron-texto);
         }
 
-        /* Cabecera Elegante */
         header {
             background: linear-gradient(135deg, var(--dorado), var(--dorado-oscuro));
             color: white;
@@ -42,13 +41,11 @@
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             font-size: 24px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         header h1 { margin: 0; font-size: 1.1rem; font-weight: bold; text-transform: uppercase; }
-        .status { font-size: 0.8rem; opacity: 0.9; font-weight: 500; }
+        .status { font-size: 0.8rem; opacity: 0.9; }
 
-        /* Área del Chat */
         #chat-container {
             flex: 1;
             overflow-y: auto;
@@ -56,10 +53,8 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
-            /* Un fondo sutil de granos o textura llanera quedaría genial aquí */
         }
 
-        /* Burbujas de Mensaje Modernas */
         .message {
             max-width: 85%;
             padding: 14px 18px;
@@ -67,12 +62,14 @@
             line-height: 1.5;
             font-size: 0.95rem;
             box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            animation: aparecer 0.3s ease-out;
+            word-wrap: break-word; /* Evita que los links largos rompan el diseño */
         }
 
-        @keyframes aparecer {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        /* Estilo para los links de WhatsApp */
+        .message a {
+            color: #007bff;
+            font-weight: bold;
+            text-decoration: underline;
         }
 
         .user {
@@ -98,7 +95,6 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        /* Área de escritura */
         form {
             background: white;
             padding: 12px 20px;
@@ -116,35 +112,21 @@
             background: #fafafa;
             font-size: 1rem;
             outline: none;
-            transition: border-color 0.3s;
         }
         
-        input:focus {
-            border-color: var(--dorado);
-        }
+        input:focus { border-color: var(--dorado); }
 
         button {
             background: var(--dorado);
             color: white;
             border: none;
-            width: 50px;
-            height: 50px;
+            width: 50px; height: 50px;
             border-radius: 50%;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 8px rgba(212, 175, 55, 0.4);
-            transition: all 0.2s;
-        }
-        
-        button:hover {
-            background: var(--dorado-oscuro);
-            transform: scale(1.05);
+            display: flex; align-items: center; justify-content: center;
         }
 
-        button svg { width: 22px; height: 22px; fill: white; margin-left: 3px; }
-
+        button svg { width: 22px; height: 22px; fill: white; }
     </style>
 </head>
 <body>
@@ -158,20 +140,19 @@
 
     <div id="chat-container">
         <div class="message bot">
-            ¡Es un placer recibirle! 👋 Bienvenido a <b>La Cachamita de Oro</b>.<br><br>
-            ¿Qué se le antoja hoy? Estamos listos para servirle nuestros mejores <b>Desayunos</b> o el menú de <b>Almuerzos</b>.
+            ¡Hola! 👋 Bienvenido a la vitrina digital de <b>La Cachamita de Oro</b>. Es un placer recibirle. <br><br>
+            Tenemos Desayunos y Almuerzos disponibles a toda hora. ¿Qué se le antoja hoy?
         </div>
     </div>
 
     <form id="chat-form">
-        <input type="text" id="msg-input" placeholder="Pregunte por su plato favorito..." required autocomplete="off">
+        <input type="text" id="msg-input" placeholder="Pregunte por un plato..." required autocomplete="off">
         <button type="submit">
             <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg>
         </button>
     </form>
 
     <script>
-        // ... (El mismo script que tenías funciona perfecto aquí) ...
         const form = document.getElementById('chat-form');
         const container = document.getElementById('chat-container');
         const input = document.getElementById('msg-input');
@@ -196,7 +177,7 @@
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let botMessage = "";
-                let botDiv = addMessage("Preparando respuesta...", 'bot'); 
+                let botDiv = addMessage("Buscando en el menú...", 'bot'); 
                 let firstChunk = true;
 
                 while (true) {
@@ -204,9 +185,8 @@
                     if (done) break;
                     
                     const chunk = decoder.decode(value, {stream: true});
-                    
-                    // Aquí la limpieza de datos si el Worker envía JSON crudo
                     const lines = chunk.split('\n');
+                    
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             const jsonStr = line.replace('data: ', '').trim();
@@ -239,7 +219,11 @@
         }
 
         function parseMarkdown(text) {
+            // 1. Imágenes
             let html = text.replace(/!\[.*?\]\((.*?)\)/g, '<img src="$1">');
+            // 2. NUEVO: Convierte links automáticos (WhatsApp, etc)
+            html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+            // 3. Saltos de línea
             return html.replace(/\n/g, '<br>');
         }
     </script>
