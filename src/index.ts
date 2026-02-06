@@ -1,106 +1,124 @@
-import { Ai } from '@cloudflare/ai';
+/**
+ * LLM Chat Application Template - CACHAMITA EDITION
+ */
+import { Env, ChatMessage } from "./types";
 
-export interface Env {
-  AI: any;
-  DB: D1Database;
-}
+// Usamos el modelo Llama 3 que es rápido y bueno hablando español
+const MODEL_ID = "@cf/meta/llama-3-8b-instruct";
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+	async fetch(
+		request: Request,
+		env: Env,
+		ctx: ExecutionContext,
+	): Promise<Response> {
+		const url = new URL(request.url);
 
-    // 1. Ruta para la IA y búsqueda en Menú
-    if (url.pathname === '/api/chat' && request.method === 'POST') {
-      try {
-        const { messages } = await request.json();
-        const lastMsg = messages[messages.length - 1].content.toLowerCase();
+		// ESTA ES LA LÍNEA CLAVE QUE FALTABA:
+		// Sirve los archivos estáticos (HTML, CSS) del frontend
+		if (url.pathname === "/" || !url.pathname.startsWith("/api/")) {
+			return env.ASSETS.fetch(request);
+		}
 
-        // Consulta segura a D1
-        let menuContext = "";
-        try {
-          const { results } = await env.DB.prepare(
-            "SELECT * FROM menu_items WHERE nombre LIKE ? OR categoria LIKE ? OR descripcion LIKE ?"
-          ).bind(`%${lastMsg}%`, `%${lastMsg}%`, `%${lastMsg}%`).all();
-          
-          if (results && results.length > 0) {
-            menuContext = "Menú disponible: " + JSON.stringify(results);
-          }
-        } catch (dbError) {
-          menuContext = "Error al conectar con la base de datos, usa información general.";
-        }
+		// API del Chat
+		if (url.pathname === "/api/chat") {
+			if (request.method === "POST") {
+				// Pasamos el env como 'any' para evitar errores de tipo con la DB
+				return handleChatRequest(request, env as any);
+			}
+			return new Response("Method not allowed", { status: 405 });
+		}
 
-        const ai = new Ai(env.AI);
-        const systemPrompt = `Eres el mesero virtual de La Cachamita de Oro en Barinas. 
-        Habla de forma amable y criolla. Si el usuario te saluda, ofrece Desayunos o Almuerzos.
-        Si recomiendas un plato, usa el formato: **Nombre** - Precio.
-        Usa fotos así: ![foto](https://cachamito.estilosgrado33.workers.dev/fotos/ID.png)
-        Información del menú: ${menuContext}`;
+		return new Response("Not found", { status: 404 });
+	},
+} satisfies ExportedHandler<Env>;
 
-        const response = await ai.run('@cf/meta/llama-3-8b-instruct', {
-          messages: [{ role: 'system', content: systemPrompt }, ...messages],
-          stream: true,
-        });
+/**
+ * Lógica del Chat con Base de Datos D1
+ */
+async function handleChatRequest(
+	request: Request,
+	env: any, // Usamos 'any' para que no te de error de Typescript con la DB
+): Promise<Response> {
+	try {
+		const { messages = [] } = (await request.json()) as {
+			messages: ChatMessage[];
+		};
 
-        return new Response(response, { headers: { 'Content-Type': 'text/event-stream' } });
-      } catch (err) {
-        return new Response("Error procesando la solicitud", { status: 500 });
-      }
-    }
+		// 1. OBTENER EL ÚLTIMO MENSAJE DEL USUARIO
+		const lastUserMsg = messages[messages.length - 1]?.content.toLowerCase() || "";
 
-    // 2. Servir el HTML del Chat
-    return new Response(chatHTML, {
-      headers: { 'Content-Type': 'text/html;charset=UTF-8' },
-    });
-  },
-};
+		// 2. CONSULTAR LA BASE DE DATOS (D1)
+		let menuContext = "";
+		try {
+			// Buscamos platos que coincidan con lo que escribe el usuario
+			const { results } = await env.DB.prepare(
+				"SELECT * FROM menu_items WHERE nombre LIKE ? OR categoria LIKE ? OR descripcion LIKE ? LIMIT 5"
+			).bind(`%${lastUserMsg}%`, `%${lastUserMsg}%`, `%${lastUserMsg}%`).all();
 
-// HTML incluido directamente para evitar errores de archivos externos
-const chatHTML = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>La Cachamita de Oro</title>
-    <style>
-        body { font-family: sans-serif; margin: 0; background: #f4f4f4; display: flex; flex-direction: column; height: 100vh; }
-        header { background: #2e7d32; color: white; padding: 15px; text-align: center; border-bottom: 4px solid #ffd600; }
-        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 10px; border-radius: 10px; max-width: 85%; }
-        .user { align-self: flex-end; background: #2e7d32; color: white; }
-        .bot { align-self: flex-start; background: white; border: 1px solid #ccc; }
-        .bot img { width: 100%; border-radius: 5px; margin-top: 5px; }
-        form { display: flex; padding: 10px; background: white; }
-        input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        button { background: #2e7d32; color: white; border: none; padding: 10px; margin-left: 5px; border-radius: 5px; }
-    </style>
-</head>
-<body>
-    <header>🐟 LA CACHAMITA DE ORO</header>
-    <div id="chat"><div class="msg bot">¡Epa! ¿Qué le provoca comer hoy en Barinas?</div></div>
-    <form id="f"><input type="text" id="i" placeholder="Escribe aquí..." required><button>Enviar</button></form>
-    <script>
-        const f=document.getElementById('f'), c=document.getElementById('chat'), h=[];
-        f.onsubmit = async (e) => {
-            e.preventDefault();
-            const v=document.getElementById('i').value;
-            document.getElementById('i').value='';
-            c.innerHTML += '<div class="msg user">'+v+'</div>';
-            h.push({role:"user", content:v});
-            const res = await fetch('/api/chat', {method:'POST', body:JSON.stringify({messages:h})});
-            const b=document.createElement('div'); b.className='msg bot'; c.appendChild(b);
-            const r=res.body.getReader(), d=new TextDecoder();
-            let t="";
-            while(true){
-                const {done, value}=await r.read();
-                if(done) break;
-                t+=d.decode(value);
-                b.innerHTML = t.replace(/!\\[foto\\]\\((.*?)\\)/g, '<img src="$1">').replace(/\\n/g, '<br>');
-                c.scrollTop = c.scrollHeight;
-            }
-            h.push({role:"assistant", content:t});
-        }
-    </script>
-</body>
-</html>
-`;
+			if (results && results.length > 0) {
+				menuContext = "INFORMACIÓN DEL MENÚ ENCONTRADA: " + JSON.stringify(results);
+			} else {
+				// Si no busca nada específico, traemos 3 platos al azar para sugerir
+				const { results: random } = await env.DB.prepare("SELECT * FROM menu_items LIMIT 3").all();
+				menuContext = "No hay coincidencia exacta. Sugiere estos platos: " + JSON.stringify(random);
+			}
+		} catch (e) {
+			console.error("Error conectando a DB:", e);
+			menuContext = "Error consultando precios. Ofrece el menú general.";
+		}
+
+		// 3. DEFINIR EL CEREBRO DEL BOT (SYSTEM PROMPT)
+		const SYSTEM_PROMPT = `
+		Eres el mesero virtual de "La Cachamita de Oro" en Barinas, Venezuela.
+		
+		TU PERSONALIDAD:
+		- Muy amable, llanero (usa "Epa", "Camarita", "A la orden").
+		- Tu objetivo es vender.
+
+		DATOS DEL MENÚ (Usa esto para responder precios y descripciones):
+		${menuContext}
+
+		REGLAS PARA RESPONDER:
+		1. Si el usuario saluda, di: "¡Epa camarita! 🤠 Bienvenido a La Cachamita de Oro. ¿Le provoco unos Desayunos o prefiere ver los Almuerzos?".
+		2. Cuando des un precio, sé exacto según los DATOS DEL MENÚ.
+		3. Si recomiendas un plato, incluye su FOTO usando este formato exacto al final de la línea:
+		   ![foto](https://cachamachat.estilosgrado33.workers.dev/fotos/ID.png)
+		   (Reemplaza ID por el id que viene en la base de datos, ej: 01, 20).
+		`;
+
+		// Agregamos el prompt al inicio de la conversación
+		const aiMessages = [
+			{ role: "system", content: SYSTEM_PROMPT },
+			...messages.filter(m => m.role !== "system") // Evitamos duplicar systems antiguos
+		];
+
+		// 4. LLAMAR A LA INTELIGENCIA ARTIFICIAL
+		const stream = await env.AI.run(
+			MODEL_ID,
+			{
+				messages: aiMessages,
+				max_tokens: 1024,
+				stream: true,
+			},
+		);
+
+		return new Response(stream, {
+			headers: {
+				"content-type": "text/event-stream; charset=utf-8",
+				"cache-control": "no-cache",
+				connection: "keep-alive",
+			},
+		});
+
+	} catch (error) {
+		console.error("Error processing chat request:", error);
+		return new Response(
+			JSON.stringify({ error: "Failed to process request" }),
+			{
+				status: 500,
+				headers: { "content-type": "application/json" },
+			},
+		);
+	}
+}
