@@ -76,7 +76,7 @@ async function handleChatRequest(
 		- Ser una vitrina informativa de lujo.
 		- Mostrar los platos, dar precios exactos y despertar el apetito del cliente.
 		- NO muestras fotos, NO tomas pedidos ni procesas pagos todavía (estás en fase de demostración).
-		-si el usuarui te dice para pagar o ahcer pedidos le pasas el link del whatsapp 
+		-si el usuarui te dice para pagar o hacer pedidos le pasas el link del whatsapp que es este https://wa.me/+584264562796
 
 		PERSONALIDAD:
 		- Muy amable, profesional y educado. Nada de "camarita".
