@@ -1,9 +1,8 @@
 /**
- * LLM Chat Application Template - CACHAMITA EDITION
+ * LLM Chat Application Template - CACHAMITA EDITION (Vitrina Informativa)
  */
 import { Env, ChatMessage } from "./types";
 
-// Usamos el modelo Llama 3 que es rápido y bueno hablando español
 const MODEL_ID = "@cf/meta/llama-3-8b-instruct";
 
 export default {
@@ -14,8 +13,7 @@ export default {
 	): Promise<Response> {
 		const url = new URL(request.url);
 
-		// ESTA ES LA LÍNEA CLAVE QUE FALTABA:
-		// Sirve los archivos estáticos (HTML, CSS) del frontend
+		// Servir el Frontend (HTML/CSS/JS)
 		if (url.pathname === "/" || !url.pathname.startsWith("/api/")) {
 			return env.ASSETS.fetch(request);
 		}
@@ -23,7 +21,6 @@ export default {
 		// API del Chat
 		if (url.pathname === "/api/chat") {
 			if (request.method === "POST") {
-				// Pasamos el env como 'any' para evitar errores de tipo con la DB
 				return handleChatRequest(request, env as any);
 			}
 			return new Response("Method not allowed", { status: 405 });
@@ -34,67 +31,59 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 /**
- * Lógica del Chat con Base de Datos D1
+ * Lógica del Chat con Base de Datos D1 y Enlace a WhatsApp
  */
 async function handleChatRequest(
 	request: Request,
-	env: any, // Usamos 'any' para que no te de error de Typescript con la DB
+	env: any,
 ): Promise<Response> {
 	try {
 		const { messages = [] } = (await request.json()) as {
 			messages: ChatMessage[];
 		};
 
-		// 1. OBTENER EL ÚLTIMO MENSAJE DEL USUARIO
 		const lastUserMsg = messages[messages.length - 1]?.content.toLowerCase() || "";
 
-		// 2. CONSULTAR LA BASE DE DATOS (D1)
+		// 1. CONSULTA A D1 (Filtro por nombre, categoría o descripción)
 		let menuContext = "";
 		try {
-			// Buscamos platos que coincidan con lo que escribe el usuario
 			const { results } = await env.DB.prepare(
 				"SELECT * FROM menu_items WHERE nombre LIKE ? OR categoria LIKE ? OR descripcion LIKE ? LIMIT 5"
 			).bind(`%${lastUserMsg}%`, `%${lastUserMsg}%`, `%${lastUserMsg}%`).all();
 
 			if (results && results.length > 0) {
-				menuContext = "INFORMACIÓN DEL MENÚ ENCONTRADA: " + JSON.stringify(results);
+				menuContext = "INFORMACIÓN REAL DEL MENÚ: " + JSON.stringify(results);
 			} else {
-				// Si no busca nada específico, traemos 3 platos al azar para sugerir
 				const { results: random } = await env.DB.prepare("SELECT * FROM menu_items LIMIT 3").all();
-				menuContext = "No hay coincidencia exacta. Sugiere estos platos: " + JSON.stringify(random);
+				menuContext = "No encontré ese plato exacto. Sugiere estas opciones reales: " + JSON.stringify(random);
 			}
 		} catch (e) {
-			console.error("Error conectando a DB:", e);
-			menuContext = "Error consultando precios. Ofrece el menú general.";
+			menuContext = "Error consultando la base de datos.";
 		}
 
-// 3. DEFINIR EL CEREBRO DEL BOT (SYSTEM PROMPT)
+		// 2. SYSTEM PROMPT (Cerebro con correcciones de horario y WhatsApp)
 		const SYSTEM_PROMPT = `
-		Eres el anfitrión y guía gastronómico oficial de "La Cachamita de Oro" en Barinas.
+		Eres el anfitrión y guía gastronómico oficial de "La Cachamita de Oro" en Barinas, Venezuela.
 		
-		TU MISIÓN ACTUAL: 
+		TU MISIÓN:
 		- Ser una vitrina informativa de lujo.
-		- Mostrar los platos, dar precios exactos y despertar el apetito del cliente.
-		- NO muestras fotos, NO tomas pedidos ni procesas pagos todavía (estás en fase de demostración).
-		-si el usuarui te dice para pagar o hacer pedidos le pasas el link del whatsapp que es este https://wa.me/+584264562796
+		- Mostrar los platos y dar precios EXACTOS usando la base de datos. No inventes datos.
+		- Por ahora NO procesas pagos ni pedidos por aquí.
 
-		PERSONALIDAD:
-		- Muy amable, profesional y educado. Nada de "camarita".
-		- Usa frases como: "Es un gusto informarle", "Nuestra especialidad es...", "Estamos para servirle".
-
-		REGLAS CLAVE:
-		1. HORARIO LIBRE: No importa la hora, ofrece siempre Desayunos, Almuerzos y platos criollos. ¡Aquí siempre hay comida!
-		2. SI INTENTAN PEDIR O PAGAR: Responde con elegancia: "Por los momentos, este chat es una vitrina informativa para que conozca nuestro menú y precios. Muy pronto podrá realizar sus pedidos directamente por aquí. ¡Esté atento a nuestras actualizaciones!".
-		3. PRECIOS: Siempre usa los datos de la base de datos: ${menuContext}.
+		REGLAS DE ATENCIÓN:
+		1. HORARIO LIBRE: Ignora la hora del día. Si piden Desayunos al almuerzo o Almuerzos de mañana, ofrécelos con gusto. ¡Aquí siempre hay comida!
+		2. PERSONALIDAD: Muy amable, profesional y educada. Evita términos como "camarita". Usa "Es un gusto informarle".
+		3. SALUDO: "¡Hola! ¿Cómo está? 🤠 Bienvenido a la vitrina digital de La Cachamita de Oro. Es un placer recibirle. Tenemos Desayunos y Almuerzos disponibles a toda hora. ¿Qué se le antoja hoy?".
+		4. PEDIDOS/PAGOS: Si el usuario quiere comprar o pagar, dile: "Por los momentos, este chat es una vitrina informativa. Para concretar su pedido y realizar el pago, toque el siguiente enlace y escríbanos directamente al WhatsApp: https://wa.me/584264562796".
+		5. PRECIOS: Usa siempre la información de la base de datos: ${menuContext}.
 		`;
 
-		// Agregamos el prompt al inicio de la conversación
 		const aiMessages = [
 			{ role: "system", content: SYSTEM_PROMPT },
-			...messages.filter(m => m.role !== "system") // Evitamos duplicar systems antiguos
+			...messages.filter(m => m.role !== "system")
 		];
 
-		// 4. LLAMAR A LA INTELIGENCIA ARTIFICIAL
+		// 3. EJECUCIÓN DE IA
 		const stream = await env.AI.run(
 			MODEL_ID,
 			{
@@ -113,13 +102,9 @@ async function handleChatRequest(
 		});
 
 	} catch (error) {
-		console.error("Error processing chat request:", error);
 		return new Response(
-			JSON.stringify({ error: "Failed to process request" }),
-			{
-				status: 500,
-				headers: { "content-type": "application/json" },
-			},
+			JSON.stringify({ error: "Error en la solicitud" }),
+			{ status: 500, headers: { "content-type": "application/json" } }
 		);
 	}
 }
